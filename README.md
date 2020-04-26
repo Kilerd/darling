@@ -1,6 +1,8 @@
-# darling
+# Project Darling
 a personal diary application.
+
 **this project is stil WIP, and its API would be quite unstable, please do a deep consideration about using it.**
+
 this project is using github gist as persistent backend storage. it aims to store your diary in reliable service and with stateless runtime. which means that you can deploy your darling app anytime and anywhere and any times without considering data-lost and and other considerations.
 
 ## Get started
