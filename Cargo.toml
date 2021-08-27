@@ -7,6 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pilot= "0.0.3"
+base64 = "0.13.0"
+chrono = "0.4.19"
+env_logger = "0.9.0"
+log = "0.4.14"
+once_cell = "1.8.0"
+pilot= {git="https://github.com/kilerd/pilot"}
+serde = {version="1.0.126", features=["serde_derive"]}
 surf = "2.2.0"
 tokio = { version = "1.9.0", features = ["full"] }
