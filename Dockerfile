@@ -7,7 +7,7 @@ RUN cargo build --release --bin darling
 FROM rust as runtime
 WORKDIR app
 COPY --from=builder /app/target/release/darling /usr/local/bin
-ENV RUST_LOG warn,darling=info
+ENV RUST_LOG warn,darling=debug
 ENV GITHUB_TOKEN MUST_SET
 ENV REPO MUST_SET
 ENV TELEGRAM_TOKEN MUST_SET
