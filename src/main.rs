@@ -44,15 +44,6 @@ async fn main() {
 
     CHANNEL.set(sender).unwrap();
     let mut bot = Bot::new();
-    bot.command("ping", |bot, msg| async move {
-        match msg.as_ref() {
-            UpdateMessage::Message(msg) => {
-                let message = SendMessage::new(msg.chat.id.to_string(), "pong");
-                bot.request(message).await.unwrap();
-            }
-            _ => {}
-        }
-    });
 
     bot.other(|bot, msg| async move {
         debug!("bot get msg");
@@ -77,15 +68,28 @@ async fn main() {
                         let msg_id = new_msg.message_id;
 
                         loop {
-                            if upload_to_github(opt.clone(), text.clone()).await.is_err() {
-                                continue;
+                            let result = upload_to_github(opt.clone(), text.clone()).await;
+                            match result {
+                                Ok(_) => {
+                                    loop {
+                                        let delete_message = DeleteMessage {
+                                            chat_id: Cow::Owned(chat_id.clone()),
+                                            message_id: msg_id,
+                                        };
+                                        match bot.request(delete_message).await {
+                                            Ok(_) => break,
+                                            Err(e) => {
+                                                warn!("bot request fail: {}", e);
+                                            }
+                                        }
+                                    }
+                                    break;
+                                }
+                                Err(e) => {
+                                    warn!("update to github got error: {}", e);
+                                    continue;
+                                }
                             }
-                            let delete_message = DeleteMessage {
-                                chat_id: Cow::Owned(chat_id),
-                                message_id: msg_id,
-                            };
-                            bot.request(delete_message).await;
-                            break;
                         }
                     }
                 }

@@ -1,14 +1,12 @@
 use crate::Opts;
+use anyhow::anyhow;
 use base64::{decode, encode};
 use chrono::{Datelike, Local};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-pub async fn upload_to_github(
-    opt: Arc<Opts>,
-    content: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let (uri, data) = get_github_file_content(&opt.github_token, &opt.repo).await;
+pub async fn upload_to_github(opt: Arc<Opts>, content: String) -> anyhow::Result<()> {
+    let (uri, data) = get_github_file_content(&opt.github_token, &opt.repo).await?;
 
     let time = Local::now();
     let month = format!("# {}-{:02}", time.year(), time.month());
@@ -16,7 +14,7 @@ pub async fn upload_to_github(
 
     let new_data = if let Some((sha, mut old_content)) = data {
         old_content = old_content.replace("\n", "");
-        let vec = decode(dbg!(old_content)).expect("cannot decode");
+        let vec = decode(old_content).expect("cannot decode");
         let decoded_content = String::from_utf8_lossy(&vec[..]);
 
         if decoded_content.contains(&format!("\n{}\n", day)) {
@@ -35,7 +33,7 @@ pub async fn upload_to_github(
         (None, content_with_header)
     };
 
-    update_github_content(&uri, &opt.github_token, new_data.0, new_data.1).await;
+    update_github_content(&uri, &opt.github_token, new_data.0, new_data.1).await?;
     Ok(())
 }
 
@@ -55,22 +53,27 @@ pub enum FileContent {
 pub async fn get_github_file_content(
     token: &str,
     repo: &str,
-) -> (String, Option<(String, String)>) {
-    loop {
-        let time = Local::now();
-        let path = format!("{}/{:02}.md", time.year(), time.month());
-        let uri = format!("https://api.github.com/repos/{}/contents/{}", repo, path);
-        let x = surf::get(dbg!(&uri))
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("Authorization", format!("Bearer {}", token))
-            .recv_json::<FileContent>()
-            .await;
-        if let Ok(ret) = x {
-            return match ret {
-                FileContent::Ok { sha, content } => (uri, Some((sha, content))),
-                FileContent::NotFound { .. } => (uri, None),
-            };
-        }
+) -> anyhow::Result<(String, Option<(String, String)>)> {
+    info!("get github file");
+    let time = Local::now();
+    let path = format!("{}/{:02}.md", time.year(), time.month());
+    let uri = format!("https://api.github.com/repos/{}/contents/{}", repo, path);
+    let client = reqwest::Client::new();
+    let result = client
+        .get(&uri)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("Authorization", format!("Bearer {}", token))
+        .header(
+            "User-Agent",
+            "darling 0.1.5 (https://github.com/kilerd/darling)",
+        )
+        .send()
+        .await?
+        .json::<FileContent>()
+        .await?;
+    match result {
+        FileContent::Ok { sha, content } => Ok((uri, Some((sha, content)))),
+        FileContent::NotFound { .. } => Ok((uri, None)),
     }
 }
 
@@ -81,22 +84,35 @@ pub struct UpdateGithubFile {
     sha: Option<String>,
 }
 
-pub async fn update_github_content(uri: &str, token: &str, sha: Option<String>, content: String) {
+pub async fn update_github_content(
+    uri: &str,
+    token: &str,
+    sha: Option<String>,
+    content: String,
+) -> anyhow::Result<()> {
+    info!("update github content");
     let encoded_content = encode(content);
     let req = UpdateGithubFile {
         message: "journal: update by telegram bot".to_string(),
         content: encoded_content,
         sha,
     };
-    loop {
-        let x = surf::put(uri)
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("Authorization", format!("Bearer {}", token))
-            .body(surf::Body::from_json(&req).expect("cannot to body bytes"))
-            .recv_string()
-            .await;
-        if let Ok(_) = x {
-            break;
-        }
+    let client = reqwest::Client::new();
+    let res = client
+        .put(uri)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("Authorization", format!("Bearer {}", token))
+        .header(
+            "User-Agent",
+            "darling 0.1.5 (https://github.com/kilerd/darling)",
+        )
+        .json(&req)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        let res_text = res.text().await?;
+        Err(anyhow!("upload to github fail: {}", res_text))
     }
 }
