@@ -78,7 +78,7 @@ async fn main() {
                             match result {
                                 Ok(_) => {
                                     loop {
-                                        info!("deleting telegram msg id={}", &chat_id);
+                                        info!("deleting telegram msg id={}", &msg_id);
                                         let delete_message = DeleteMessage {
                                             chat_id: Cow::Owned(chat_id.clone()),
                                             message_id: msg_id,
