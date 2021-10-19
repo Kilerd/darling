@@ -10,6 +10,7 @@ use pilot::{bot::Bot, method::send::SendMessage, method::DeleteMessage, typing::
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::error::SendError;
 use tokio::time::Duration;
 
 pub mod github;
@@ -42,12 +43,17 @@ async fn main() {
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel(100);
 
-    CHANNEL.set(sender).unwrap();
+    CHANNEL.set(sender).expect("cannot set global channel");
     let mut bot = Bot::new();
 
     bot.other(|bot, msg| async move {
         debug!("bot get msg");
-        CHANNEL.get().unwrap().send((bot, msg)).await;
+        match CHANNEL.get().unwrap().send((bot, msg)).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("cannot send msg to channel: {}", e);
+            }
+        };
     });
 
     let consumer = tokio::spawn(async move {
@@ -72,6 +78,7 @@ async fn main() {
                             match result {
                                 Ok(_) => {
                                     loop {
+                                        info!("deleting telegram msg id={}", &chat_id);
                                         let delete_message = DeleteMessage {
                                             chat_id: Cow::Owned(chat_id.clone()),
                                             message_id: msg_id,
@@ -87,7 +94,6 @@ async fn main() {
                                 }
                                 Err(e) => {
                                     warn!("update to github got error: {}", e);
-                                    continue;
                                 }
                             }
                         }

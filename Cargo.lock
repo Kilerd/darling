@@ -620,8 +620,9 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
 name = "pilot"
-version = "0.0.5"
-source = "git+https://github.com/kilerd/pilot#6fc4cf6d6a5eee24bc120da18ee9b3cb0a93f8b8"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fd6b63541400c3572a6e5e8e59f14a38d89f5d7f0ae18de80c5329e93999bca"
 dependencies = [
  "log",
  "reqwest",
