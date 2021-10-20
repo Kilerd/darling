@@ -72,9 +72,9 @@ async fn main() {
 
                     if let Some(text) = &new_msg.text {
                         let msg_id = new_msg.message_id;
-
+                        let msg_date = new_msg.date;
                         loop {
-                            let result = upload_to_github(opt.clone(), text.clone()).await;
+                            let result = upload_to_github(opt.clone(), text.clone(), msg_date).await;
                             match result {
                                 Ok(_) => {
                                     loop {

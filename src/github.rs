@@ -1,35 +1,40 @@
 use crate::Opts;
 use anyhow::anyhow;
 use base64::{decode, encode};
-use chrono::{Datelike, Local};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-pub async fn upload_to_github(opt: Arc<Opts>, content: String) -> anyhow::Result<()> {
+pub async fn upload_to_github(
+    opt: Arc<Opts>,
+    content: String,
+    msg_date: i32,
+) -> anyhow::Result<()> {
     let (uri, data) = get_github_file_content(&opt.github_token, &opt.repo).await?;
 
     let time = Local::now();
     let month = format!("# {}-{:02}", time.year(), time.month());
-    let day = format!("## {}-{:02}-{:02}", time.year(), time.month(), time.day());
+    let naive_datetime = NaiveDateTime::from_timestamp(msg_date as i64, 0);
+    let utc_datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
+    let offset = FixedOffset::east(3600 * 8);
+    let local_datetime = utc_datetime.with_timezone(&offset);
+    let date = local_datetime.format("%Y-%m-%d %T %A");
 
+    let one_line_data = content.replace("\n", "<br />");
     let new_data = if let Some((sha, mut old_content)) = data {
         old_content = old_content.replace("\n", "");
         let vec = decode(old_content).expect("cannot decode");
         let decoded_content = String::from_utf8_lossy(&vec[..]);
 
-        if decoded_content.contains(&format!("\n{}\n", day)) {
-            (
-                Some(sha),
-                format!("{}\n\n---\n{}", decoded_content, content),
-            )
-        } else {
-            (
-                Some(sha),
-                format!("{}\n{}\n{}", decoded_content, day, content),
-            )
-        }
+        (
+            Some(sha),
+            format!("{}\n|{}|{}|", decoded_content, date, one_line_data),
+        )
     } else {
-        let content_with_header = format!("{}\n{}\n{}", month, day, content);
+        let content_with_header = format!(
+            "{}\n|date |content |\n|----|----|\n|{}|{}|",
+            month, date, one_line_data
+        );
         (None, content_with_header)
     };
 
