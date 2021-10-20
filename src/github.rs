@@ -28,7 +28,11 @@ pub async fn upload_to_github(
 
         (
             Some(sha),
-            format!("{}\n|{}|{}|", decoded_content, date, one_line_data),
+            if decoded_content.ends_with("\n") {
+                format!("{}|{}|{}|", decoded_content, date, one_line_data)
+            } else {
+                format!("{}\n|{}|{}|", decoded_content, date, one_line_data)
+            },
         )
     } else {
         let content_with_header = format!(
